@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+
+# Env & secrets
+.env
+service_account.json
+
+# OS files
+.DS_Store
+Thumbs.db

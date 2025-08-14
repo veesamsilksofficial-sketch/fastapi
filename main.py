@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import jwt, datetime, os
+import jwt, datetime, os, json
 import supabase
 from werkzeug.utils import secure_filename
 from google.oauth2 import service_account
@@ -9,7 +9,7 @@ from googleapiclient.http import MediaFileUpload
 import tempfile
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev_secret")
 
@@ -18,9 +18,10 @@ supabase_client = supabase.create_client(
     os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"]
 )
 
-# Google Drive setup
-creds = service_account.Credentials.from_service_account_file(
-    "service_account.json", scopes=["https://www.googleapis.com/auth/drive.file"]
+# Google Drive setup (from JSON string in env var)
+creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
+creds = service_account.Credentials.from_service_account_info(
+    creds_dict, scopes=["https://www.googleapis.com/auth/drive.file"]
 )
 drive_service = build("drive", "v3", credentials=creds)
 DRIVE_FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
@@ -66,6 +67,10 @@ def add_product():
     description = request.form["description"]
     image = request.files["image"]
 
+    # Validate file
+    if not image.mimetype.startswith("image/"):
+        return jsonify({"error": "Invalid file type"}), 400
+
     # Save temp file for upload
     temp_file = tempfile.NamedTemporaryFile(delete=False)
     image.save(temp_file.name)
@@ -87,4 +92,4 @@ def delete_product(id):
     return jsonify({"message": "Deleted"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
